@@ -42,8 +42,7 @@ This repository contains two entrypoints:
 1. **Clone** this repo and navigate into it:
 
    ```bash
-   git clone 
-   cd mcp-server
+   git clone https://github.com/dellasala/py-mcp-jena.git
    ```
 
 2. **Create a virtual environment** and install dependencies:
