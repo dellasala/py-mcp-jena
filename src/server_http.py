@@ -24,7 +24,7 @@ python server_http.py --stateless --port 7000
 
 import argparse
 import uvicorn
-from server import mcp  # importa il FastMCP definito in server.py
+from src.server import mcp  # importa il FastMCP definito in server.py
 
 
 def main() -> None:
