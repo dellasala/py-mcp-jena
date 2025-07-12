@@ -2,21 +2,17 @@ from __future__ import annotations
 
 """MCP Jena Connector – Streamable‑HTTP launcher
 
-Questo file avvia il server FastMCP su un host/porta configurabili
-attraverso CLI, evitando conflitti (WinError 10048) quando la porta
-predefinita 8000 è già occupata.
 
-Differenze rispetto a *server.py*
 ---------------------------------
-* Importa l’oggetto `mcp` da `server` (stesso namespace dei tool).
-* Crea l’ASGI app con `mcp.streamable_http_app()`.
-* Esegue **uvicorn** con host/port personalizzabili (default 127.0.0.1:8000).
-* Supporta `--stateless` per abilitare modalità stateless.
+* Import the `mcp` object from `server` (same tool namespace).
+* Creates the ASGI app with `mcp.streamable_http_app()`.
+* Runs **uvicorn** with customisable host/port (default 127.0.0.1:9000).
+* Supports `--stateless` to enable stateless mode.
 
-Esempi:
+Examples:
 ```bash
-python server_http.py                 # 127.0.0.1:8000
-python server_http.py --port 9000     # porta diversa
+python server_http.py                 # 127.0.0.1:9000
+python server_http.py --port 7000     # porta diversa
 python server_http.py --host 0.0.0.0  # bind su tutte le interfacce
 python server_http.py --stateless --port 7000
 ```
@@ -24,13 +20,13 @@ python server_http.py --stateless --port 7000
 
 import argparse
 import uvicorn
-from src.server import mcp  # importa il FastMCP definito in server.py
+from server import mcp  # importa il FastMCP definito in server.py
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run MCP Jena Connector (streamable-http)")
     parser.add_argument("--host", default="127.0.0.1", help="Bind address, default 127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000, help="TCP port, default 8000")
+    parser.add_argument("--port", type=int, default=9000, help="TCP port, default 8000")
     parser.add_argument("--stateless", action="store_true", help="Run in stateless mode (no sessions)")
     args = parser.parse_args()
 
