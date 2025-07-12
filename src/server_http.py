@@ -3,6 +3,7 @@ from __future__ import annotations
 """MCP Jena Connector – Streamable‑HTTP launcher
 
 
+
 ---------------------------------
 * Import the `mcp` object from `server` (same tool namespace).
 * Creates the ASGI app with `mcp.streamable_http_app()`.
