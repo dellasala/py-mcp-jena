@@ -27,7 +27,7 @@ from server import mcp  # importa il FastMCP definito in server.py
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run MCP Jena Connector (streamable-http)")
     parser.add_argument("--host", default="127.0.0.1", help="Bind address, default 127.0.0.1")
-    parser.add_argument("--port", type=int, default=9000, help="TCP port, default 8000")
+    parser.add_argument("--port", type=int, default=9000, help="TCP port, default 9000")
     parser.add_argument("--stateless", action="store_true", help="Run in stateless mode (no sessions)")
     args = parser.parse_args()
 
