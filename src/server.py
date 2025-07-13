@@ -2,38 +2,30 @@ from __future__ import annotations
 
 """MCP Jena Connector – Python implementation (Streamable-HTTP) 
 
-Avvio rapido (porta 8000):
+Avvio rapido (porta 9000):
 -------------------------
 ```bash
-python server.py              # http://localhost:8000/mcp
+python server.py              # starts at http://localhost:9000/mcp
 python server.py --stateless   # stateless mode
 ```
 
 Variabili ambiente per Jena/Fuseki:
 ```
-FUSEKI_URL      # es. http://localhost:3030
-DEFAULT_DATASET # es. ontoFD
-JENA_USERNAME   # opzionale
-JENA_PASSWORD   # opzionale
+FUSEKI_URL      # e.g. http://localhost:3030
+DEFAULT_DATASET # e.g. ontoFD
+JENA_USERNAME   # optional
+JENA_PASSWORD   # optional
 ```
 """
 
-###############################################################################
-# Imports & setup                                                             #
-###############################################################################
-
 import os
-import urllib.parse
 import argparse
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import httpx
-from pydantic import BaseModel, Field
+from httpx import RequestError, HTTPStatusError
+from pydantic import Field
 from mcp.server.fastmcp import FastMCP
-
-###############################################################################
-# Helper classes                                                              #
-###############################################################################
 
 
 class SparqlError(RuntimeError):
@@ -52,92 +44,83 @@ class JenaClient:
         timeout: float = 30.0,
     ) -> None:
         self.base_url = (base_url or os.getenv("FUSEKI_URL", "http://localhost:3030")).rstrip('/')
-        self.dataset  = (dataset or os.getenv("DEFAULT_DATASET", "ontoFD")).lstrip('/')
+        self.dataset = (dataset or os.getenv("DEFAULT_DATASET", "ontoFD")).lstrip('/')
         self.auth = (
             username or os.getenv("JENA_USERNAME"),
             password or os.getenv("JENA_PASSWORD"),
         )
         if not any(self.auth):
-            self.auth = None  # type: ignore  # httpx expects Tuple[str, str] | None
+            self.auth = None  # type: ignore
         self.timeout = timeout
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     def execute_query(self, query: str) -> Dict[str, Any]:
-        params = {"query": query}
-        url = f"{self.base_url.rstrip('/')}/{self.dataset}/query"
+        """Executes a SPARQL SELECT/ASK query and returns JSON result."""
+        url = f"{self.base_url}/{self.dataset}/query"
         try:
             resp = httpx.get(
                 url,
-                params=params,
+                params={"query": query},
                 headers={"Accept": "application/sparql-results+json"},
-                auth=self.auth,  # type: ignore[arg-type]
+                auth=self.auth,
                 timeout=self.timeout,
             )
             resp.raise_for_status()
             return resp.json()
-        except httpx.HTTPError as exc:
-            raise SparqlError(self._err("query", exc)) from exc
+        except RequestError as err:
+            raise SparqlError(f"Connection error during SPARQL query: {err}") from err
+        except HTTPStatusError as err:
+            text = err.response.text.strip() if err.response else "<no body>"
+            raise SparqlError(f"SPARQL query failed ({err.response.status_code}): {text}") from err
 
     def execute_update(self, update: str) -> str:
-        url = f"{self.base_url.rstrip('/')}/{self.dataset}/update"
-        data = urllib.parse.urlencode({"update": update})
+        """Executes a SPARQL UPDATE and returns a confirmation message."""
+        url = f"{self.base_url}/{self.dataset}/update"
         try:
             resp = httpx.post(
                 url,
-                data=data,
+                data={"update": update},
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
-                auth=self.auth,  # type: ignore[arg-type]
+                auth=self.auth,
                 timeout=self.timeout,
             )
             resp.raise_for_status()
             return "Update successful"
-        except httpx.HTTPError as exc:
-            raise SparqlError(self._err("update", exc)) from exc
+        except RequestError as err:
+            raise SparqlError(f"Connection error during SPARQL update: {err}") from err
+        except HTTPStatusError as err:
+            text = err.response.text.strip() if err.response else "<no body>"
+            raise SparqlError(f"SPARQL update failed ({err.response.status_code}): {text}") from err
 
     def list_graphs(self) -> List[str]:
+        """Lists distinct graph URIs in the dataset."""
         result = self.execute_query(
             "SELECT DISTINCT ?g WHERE { GRAPH ?g { ?s ?p ?o } } ORDER BY ?g"
         )
         return [b["g"]["value"] for b in result["results"]["bindings"]]
 
-    @staticmethod
-    def _err(kind: str, exc: httpx.HTTPError) -> str:
-        if isinstance(exc, httpx.TimeoutException):
-            return f"SPARQL {kind} timed-out: {exc!s}"
-        if exc.response is not None:
-            return f"SPARQL {kind} failed ({exc.response.status_code}): {exc.response.text.strip()}"
-        return f"SPARQL {kind} failed: {exc!s}"
-
-###############################################################################
-# SPARQL template catalogue                                                   #
-###############################################################################
-
-template_catalogue: Dict[str, List[Dict[str, str]]] = {
-    # (omesso per brevità – identico alla versione precedente)
-}
-
 
 def _templates_for_category(cat: str) -> Dict[str, Any]:
-    if cat == "all":
-        return template_catalogue
-    if cat not in template_catalogue:
-        raise ValueError(
-            "Unknown category – use exploration, property-paths, statistics, validation, schema, all"
-        )
-    return {cat: template_catalogue[cat]}
+    """Return SPARQL query templates grouped by category."""
+    catalogue: Dict[str, List[str]] = {
+        "select": [
+            "SELECT ?s WHERE { ?s ?p ?o } LIMIT 10",
+            "SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object }"
+        ],
+        "update": [
+            "INSERT DATA { GRAPH <http://example.org> { <http://example.org/subject> <http://example.org/predicate> \"object\" } }",
+            "DELETE WHERE { GRAPH <http://example.org> { ?s ?p ?o } }"
+        ],
+    }
+    # 'all' category combines every template
+    all_templates = []
+    for templates in catalogue.values():
+        all_templates.extend(templates)
+    catalogue["all"] = all_templates
+    # Return templates for requested category
+    return {"category": cat, "templates": catalogue.get(cat, [])}
 
-###############################################################################
-# FastMCP server definition                                                   #
-###############################################################################
 
 mcp = FastMCP("MCP Jena Connector", dependencies=["httpx"])
-
-# ------------------------------------------------------------------
-# Tools
-# ------------------------------------------------------------------
 
 @mcp.tool()
 def execute_sparql_query(
@@ -148,7 +131,6 @@ def execute_sparql_query(
     client = JenaClient(endpoint, dataset)
     return {"status": "success", "data": client.execute_query(query)}
 
-
 @mcp.tool()
 def execute_sparql_update(
     update: str = Field(..., description="SPARQL update to execute"),
@@ -158,7 +140,6 @@ def execute_sparql_update(
     client = JenaClient(endpoint, dataset)
     return {"status": "success", "message": client.execute_update(update)}
 
-
 @mcp.tool()
 def list_graphs(
     dataset: str | None = Field(None),
@@ -167,16 +148,11 @@ def list_graphs(
     client = JenaClient(endpoint, dataset)
     return {"status": "success", "graphs": client.list_graphs()}
 
-
 @mcp.tool()
 def sparql_query_templates(
     category: str = Field("all", description="Template category")
 ) -> Dict[str, Any]:
     return {"status": "success", "templates": _templates_for_category(category)}
-
-###############################################################################
-# Entrypoint (streamable-http)                                                #
-###############################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MCP Jena Connector (streamable-http)")

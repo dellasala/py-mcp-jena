@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY .. .
 
 # 5. Expose the port your server listens on
-EXPOSE 7000
+EXPOSE 9000
 
 # 6. Launch the HTTP server on container start
 CMD ["python", "server_http.py"]

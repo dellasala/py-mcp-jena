@@ -16,7 +16,7 @@ This repository contains two entrypoints:
     - Optional `JENA_USERNAME` and `JENA_PASSWORD` for authenticated endpoints
   - Usage:
     ```bash
-    python server.py               # starts on http://localhost:8000 using streaming HTTP
+    python server.py               # starts on http://localhost:9000 using streaming HTTP
     python server.py --stateless   # run in stateless mode (no session state)
     ```
 
@@ -27,12 +27,12 @@ This repository contains two entrypoints:
   - Runs with **uvicorn**, allowing custom bind address and port
   - CLI options:
     - `--host` (default: `127.0.0.1`)
-    - `--port` (default: `8000`)
+    - `--port` (default: `9000`)
     - `--stateless` to enable stateless HTTP
   - Usage examples:
     ```bash
-    python server_http.py                 # bind 127.0.0.1:8000
-    python server_http.py --port 9000     # use port 9000
+    python server_http.py                 # bind 127.0.0.1:9000
+    python server_http.py --port 7000     # use port 7000
     python server_http.py --host 0.0.0.0   # listen on all interfaces
     python server_http.py --stateless
     ```
@@ -74,7 +74,7 @@ This repository contains two entrypoints:
    - Uvicorn launcher:
 
      ```bash
-     python server_http.py --host 0.0.0.0 --port 8000
+     python server_http.py --host 0.0.0.0 --port 7000
      ```
 
 ## Example: Using with google-adk
@@ -84,7 +84,7 @@ from google_adk import MCPToolset
 from google_adk.connection import StreamableHTTPConnectionParams
 
 # Point to your running MCP server
-SERVER_URL = "http://localhost:8000"
+SERVER_URL = "http://localhost:9000"
 
 tool = MCPToolset(
     connection_params=StreamableHTTPConnectionParams(url=SERVER_URL)
